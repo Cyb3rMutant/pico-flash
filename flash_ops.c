@@ -1,4 +1,5 @@
 #include "flash_ops.h"
+#include "flash_data.h"
 #include "hardware/flash.h"
 #include "hardware/sync.h"
 #include "pico/stdlib.h"
@@ -18,21 +19,27 @@
 // - data_len: Length of the data to be written.
 //
 // Note: This function erases the flash sector before writing new data.
-void flash_write_safe(uint32_t offset, const uint8_t *data, size_t data_len) {
+void flash_write_safe(uint32_t offset, flash_data *fd) {
     uint32_t flash_address = FLASH_TARGET_OFFSET + offset;
-    if (FLASH_SIZE <= flash_address + data_len) {
-        printf("FLASH_SIZE is %lu while start address is %ul and end is %ul, "
-               "with a size of %ul",
-               FLASH_SIZE, flash_address, flash_address + data_len, data_len);
-        return;
+    // if (FLASH_SIZE <= flash_address + data_len) {
+    //     printf("FLASH_SIZE is %lu while start address is %ul and end is %ul,
+    //     "
+    //            "with a size of %ul",
+    //            FLASH_SIZE, flash_address, flash_address + data_len,
+    //            data_len);
+    //     return;
+    // }
+
+    flash_data temp_fd;
+    flash_read_safe(offset, &temp_fd);
+    if (first_write(&temp_fd)) {
+        init_flash_data(fd, fd->data);
     }
-
+    fd->write_count = temp_fd.write_count;
+    fd->write_count++;
     uint32_t ints = save_and_disable_interrupts();
-
     flash_range_erase(flash_address, FLASH_SECTOR_SIZE);
-
-    flash_range_program(flash_address, data, data_len);
-
+    flash_range_program(flash_address, fd, 4096);
     restore_interrupts(ints);
 }
 
@@ -45,16 +52,18 @@ void flash_write_safe(uint32_t offset, const uint8_t *data, size_t data_len) {
 // - buffer_len: Number of bytes to read.
 //
 // Note: The function performs bounds checking to ensure safe access.
-void flash_read_safe(uint32_t offset, uint8_t *buffer, size_t buffer_len) {
+void flash_read_safe(uint32_t offset, flash_data *fd) {
     uint32_t flash_address = FLASH_TARGET_OFFSET + offset;
-    if (FLASH_SIZE <= flash_address + buffer_len) {
-        printf("FLASH_SIZE is %lu while start address is %ul and end is %ul, "
-               "with a size of %ul",
-               FLASH_SIZE, flash_address, flash_address + buffer_len,
-               buffer_len);
-        return;
-    }
-    memcpy(buffer, (void *)(XIP_BASE + flash_address), buffer_len);
+    // if (FLASH_SIZE <= flash_address + buffer_len) {
+    //     printf("FLASH_SIZE is %lu while start address is %ul and end is %ul,
+    //     "
+    //            "with a size of %ul",
+    //            FLASH_SIZE, flash_address, flash_address + buffer_len,
+    //            buffer_len);
+    //     return;
+    // }
+    memcpy(fd, (flash_data *)(XIP_BASE + flash_address), 4096);
+    fix_read(fd);
 }
 
 // Function: flash_erase_safe
@@ -64,18 +73,24 @@ void flash_read_safe(uint32_t offset, uint8_t *buffer, size_t buffer_len) {
 // - offset: The offset from FLASH_TARGET_OFFSET where the erase starts.
 //
 // Note: This function checks that the operation stays within valid bounds.
-void flash_erase_safe(uint32_t offset) {
+void flash_erase_safe(uint32_t offset, flash_data *fd) {
     uint32_t flash_address = FLASH_TARGET_OFFSET + offset;
-    if (FLASH_SIZE <= flash_address + FLASH_SECTOR_SIZE) {
-        printf("FLASH_SIZE is %lu while start address is %ul and end is %ul, "
-               "with a size of %ul",
-               FLASH_SIZE, flash_address, flash_address + FLASH_SECTOR_SIZE,
-               FLASH_SECTOR_SIZE);
-        return;
-    }
+    // if (FLASH_SIZE <= flash_address + FLASH_SECTOR_SIZE) {
+    //     printf("FLASH_SIZE is %lu while start address is %ul and end is %ul,
+    //     "
+    //            "with a size of %ul",
+    //            FLASH_SIZE, flash_address, flash_address + FLASH_SECTOR_SIZE,
+    //            FLASH_SECTOR_SIZE);
+    //     return;
+    // }
+    flash_read_safe(offset, fd);
     uint32_t ints = save_and_disable_interrupts();
-
     flash_range_erase(flash_address, FLASH_SECTOR_SIZE);
-
     restore_interrupts(ints);
+    if (first_write(fd)) {
+        init_flash_data(fd, "");
+    } else {
+        reset_data(fd);
+    }
+    flash_write_safe(offset, fd);
 }
