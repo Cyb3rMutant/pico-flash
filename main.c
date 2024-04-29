@@ -1,7 +1,7 @@
-#include <stdio.h>
-#include "pico/stdlib.h"
 #include "cli.h"
 #include "custom_fgets.h"
+#include "pico/stdlib.h"
+#include <stdio.h>
 
 int main() {
     stdio_init_all();
@@ -16,9 +16,9 @@ int main() {
     while (1) {
         printf("\nEnter command: ");
         custom_fgets(command, sizeof(command), stdin);
-        execute_command(command);
+        if (execute_command(command))
+            break;
     }
 
     return 0;
 }
-

@@ -20,26 +20,21 @@
 //
 // Note: This function erases the flash sector before writing new data.
 void flash_write_safe(uint32_t offset, flash_data *fd) {
-    uint32_t flash_address = FLASH_TARGET_OFFSET + offset;
-    // if (FLASH_SIZE <= flash_address + data_len) {
-    //     printf("FLASH_SIZE is %lu while start address is %ul and end is %ul,
-    //     "
-    //            "with a size of %ul",
-    //            FLASH_SIZE, flash_address, flash_address + data_len,
-    //            data_len);
-    //     return;
-    // }
+    uint32_t flash_address = FLASH_TARGET_OFFSET + (FLASH_SECTOR_SIZE * offset);
+    if (FLASH_SIZE <= flash_address + FLASH_SECTOR_SIZE) {
+        printf("Out of bounds\n");
+        return;
+    }
 
     flash_data temp_fd;
     flash_read_safe(offset, &temp_fd);
-    if (first_write(&temp_fd)) {
-        init_flash_data(fd, fd->data);
+    if (!first_write(&temp_fd)) {
+        fd->write_count = temp_fd.write_count;
     }
-    fd->write_count = temp_fd.write_count;
     fd->write_count++;
     uint32_t ints = save_and_disable_interrupts();
     flash_range_erase(flash_address, FLASH_SECTOR_SIZE);
-    flash_range_program(flash_address, fd, 4096);
+    flash_range_program(flash_address, fd, FLASH_SECTOR_SIZE);
     restore_interrupts(ints);
 }
 
@@ -53,17 +48,12 @@ void flash_write_safe(uint32_t offset, flash_data *fd) {
 //
 // Note: The function performs bounds checking to ensure safe access.
 void flash_read_safe(uint32_t offset, flash_data *fd) {
-    uint32_t flash_address = FLASH_TARGET_OFFSET + offset;
-    // if (FLASH_SIZE <= flash_address + buffer_len) {
-    //     printf("FLASH_SIZE is %lu while start address is %ul and end is %ul,
-    //     "
-    //            "with a size of %ul",
-    //            FLASH_SIZE, flash_address, flash_address + buffer_len,
-    //            buffer_len);
-    //     return;
-    // }
-    memcpy(fd, (flash_data *)(XIP_BASE + flash_address), 4096);
-    fix_read(fd);
+    uint32_t flash_address = FLASH_TARGET_OFFSET + (FLASH_SECTOR_SIZE * offset);
+    if (FLASH_SIZE <= flash_address + FLASH_SECTOR_SIZE) {
+        printf("Out of bounds\n");
+        return;
+    }
+    memcpy(fd, (flash_data *)(XIP_BASE + flash_address), FLASH_SECTOR_SIZE);
 }
 
 // Function: flash_erase_safe
@@ -74,15 +64,11 @@ void flash_read_safe(uint32_t offset, flash_data *fd) {
 //
 // Note: This function checks that the operation stays within valid bounds.
 void flash_erase_safe(uint32_t offset, flash_data *fd) {
-    uint32_t flash_address = FLASH_TARGET_OFFSET + offset;
-    // if (FLASH_SIZE <= flash_address + FLASH_SECTOR_SIZE) {
-    //     printf("FLASH_SIZE is %lu while start address is %ul and end is %ul,
-    //     "
-    //            "with a size of %ul",
-    //            FLASH_SIZE, flash_address, flash_address + FLASH_SECTOR_SIZE,
-    //            FLASH_SECTOR_SIZE);
-    //     return;
-    // }
+    uint32_t flash_address = FLASH_TARGET_OFFSET + (FLASH_SECTOR_SIZE * offset);
+    if (FLASH_SIZE <= flash_address + FLASH_SECTOR_SIZE) {
+        printf("Out of bounds\n");
+        return;
+    }
     flash_read_safe(offset, fd);
     uint32_t ints = save_and_disable_interrupts();
     flash_range_erase(flash_address, FLASH_SECTOR_SIZE);

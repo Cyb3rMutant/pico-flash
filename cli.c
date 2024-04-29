@@ -2,6 +2,7 @@
 #include "custom_fgets.h"
 #include "flash_data.h"
 #include "flash_ops.h"
+#include "tests.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -9,7 +10,6 @@
 void write();
 void read();
 void erase();
-uint32_t get_address();
 flash_data fd;
 
 // Function: execute_command
@@ -24,7 +24,7 @@ flash_data fd;
 // - ERASE: Erases a sector of flash memory.
 //
 // Each command expects specific arguments following the command name.
-void execute_command(char *command) {
+int execute_command(char *command) {
     // Split the command string into tokens
     char *token = strtok(command, " ");
 
@@ -35,33 +35,39 @@ void execute_command(char *command) {
     }
 
     // Handle the WRITE command
-    if (strcmp(token, "WRITE") == 0) {
+    if (strcmp(token, "write") == 0) {
         write();
     }
     // Handle the READ command
-    else if (strcmp(token, "READ") == 0) {
+    else if (strcmp(token, "read") == 0) {
         read();
     }
     // Handle the ERASE command
-    else if (strcmp(token, "ERASE") == 0) {
+    else if (strcmp(token, "erase") == 0) {
         erase();
+    } else if (strcmp(token, "test") == 0) {
+        run_tests();
+    } else if (strcmp(token, "exit") == 0) {
+        return 1;
     }
     // Handle unknown commands
     else {
         printf("\nUnknown command\n");
     }
+    return 0;
 }
 
 void write() {
     // Parse the address
-    uint32_t address;
-    if (!(address = get_address())) {
+    char *token = strtok(NULL, " ");
+    if (token == NULL) {
         printf("\nWRITE requires an address and data\n");
         return;
     }
+    uint32_t address = atoi(token);
 
     // Parse the data, assuming it's enclosed in quotes
-    char *token = strtok(NULL, "\"");
+    token = strtok(NULL, "\"");
     if (token == NULL) {
         printf("\nInvalid data format for WRITE\n");
         return;
@@ -74,14 +80,15 @@ void write() {
 
 void read() {
     // Parse the address
-    uint32_t address;
-    if (!(address = get_address())) {
-        printf("\nREAD requires an address and length\n");
+    char *token = strtok(NULL, " ");
+    if (token == NULL) {
+        printf("\nWRITE requires an address and data\n");
         return;
     }
+    uint32_t address = atoi(token);
 
     // Parse the length of data to read
-    char *token = strtok(NULL, " ");
+    token = strtok(NULL, " ");
     if (token == NULL) {
         printf("\nInvalid length for READ\n");
         return;
@@ -90,26 +97,18 @@ void read() {
     flash_read_safe(address, &fd);
 
     // Output the read data
-    print(&fd);
+    print(&fd, atoi(token));
 }
 
 void erase() {
     // Parse the address
-    uint32_t address;
-    if (!(address = get_address())) {
-        printf("ERASE requires an address\n");
-        return;
-    }
-
-    // Execute the erase operation
-    flash_erase_safe(address, &fd);
-}
-
-uint32_t get_address() {
     char *token = strtok(NULL, " ");
     if (token == NULL) {
         printf("\nWRITE requires an address and data\n");
-        return 0;
+        return;
     }
-    return atoi(token);
+    uint32_t address = atoi(token);
+
+    // Execute the erase operation
+    flash_erase_safe(address, &fd);
 }
