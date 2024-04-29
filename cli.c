@@ -31,7 +31,7 @@ int execute_command(char *command) {
     // Check for an empty or invalid command
     if (token == NULL) {
         printf("\nInvalid command\n");
-        return;
+        return 0;
     }
 
     // Handle the WRITE command
@@ -46,7 +46,7 @@ int execute_command(char *command) {
     else if (strcmp(token, "erase") == 0) {
         erase();
     } else if (strcmp(token, "test") == 0) {
-        run_tests();
+        run_tests(&fd);
     } else if (strcmp(token, "exit") == 0) {
         return 1;
     }

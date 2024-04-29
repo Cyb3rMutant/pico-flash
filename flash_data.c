@@ -23,6 +23,7 @@ void reset_data(flash_data *fd) {
     }
     fd->len = 0;
 }
+
 void print(flash_data *fd, int len) {
     char t = fd->data[len];
     fd->data[len] = '\0';
